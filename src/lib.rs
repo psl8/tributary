@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use std::cell::Cell;
 
+pub mod list;
+pub mod stream;
+
 trait Walk<T: Walk<T>> {
     type Output;
     fn walk(&self, &SMap<T>) -> Self::Output;
@@ -85,31 +88,6 @@ impl<'a> Unify<LVal<'a>> for LVal<'a> {
             Some(map)
         } else {
             None
-        }
-    }
-}
-
-pub enum Stream<'a> {
-    Empty,
-    Mature {
-        head: LVal<'a>,
-        next: Box<Stream<'a>>,
-    },
-    Immature {
-        thunk: Box<Fn() -> Stream<'a>>,
-    },
-}
-
-impl<'a> Iterator for Stream<'a> {
-    type Item = LVal<'a>;
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Stream::Empty => None,
-            Stream::Mature { head, next } => {
-                self = next;
-                Some(*head)
-            },
-            Stream::Immature { thunk } => thunk().next(),
         }
     }
 }
