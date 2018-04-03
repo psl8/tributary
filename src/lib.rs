@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::cell::Cell;
 
-pub mod list;
 pub mod stream;
 
 trait Walk<T: Walk<T>> {
