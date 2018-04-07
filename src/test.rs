@@ -1,16 +1,18 @@
-use unify::*;
+use goal::*;
 use state::*;
-//use stream::*;
+use unify::LVal::*;
+use unify::*;
 
 #[test]
 fn simple_unify() {
     let mut state = State::new();
     let l1 = state.make_var();
     let l2 = state.make_var();
-    state.add(l1, LVal::Var(l2));
-    state.add(l2, LVal::Str("Hello"));
-    let state = LVal::Var(l1).unify(LVal::Var(l2), state);
-    assert_eq!(LVal::Str("Hello"), LVal::Var(l1).walk(&state));
+    state.add(l1, Var(l2));
+    state.add(l2, Str("Hello"));
+
+    let state = Var(l1).unify(Var(l2), state);
+    assert_eq!(Str("Hello"), Var(l1).walk(&state));
 }
 
 #[test]
@@ -18,53 +20,47 @@ fn simple_stream() {
     let mut state = State::new();
     let l1 = state.make_var();
     let l2 = state.make_var();
-    state.add(l1, LVal::Var(l2));
-    state.add(l2, LVal::Str("Hello"));
-    let mut stream = state.unify(LVal::Var(l1), LVal::Var(l2));
-    assert_eq!(LVal::Str("Hello"), LVal::Var(l1).walk(&stream.next().unwrap()));
-}
+    state.add(l1, Var(l2));
+    state.add(l2, Str("Hello"));
 
-
-/*
-#[test]
-fn stream_mature() {
-    let mut stream = Stream::new();
-
-    stream.add_val(LVal::Int(3));
-
-    assert_eq!(LVal::Int(3), stream.next().unwrap())
+    let mut stream = state.unify(Var(l1), Var(l2));
+    assert_eq!(Str("Hello"), Var(l1).walk(&stream.next().unwrap()));
 }
 
 #[test]
-fn stream_immature() {
-    let mut stream = Stream::new();
+fn simple_goal() {
+    let mut state = State::new();
+    let l1 = state.make_var();
+    let l2 = state.make_var();
+    state.add(l1, Var(l2));
+    state.add(l2, Str("Hello"));
 
-    stream.add_thunk(Box::new(|| StreamElem::Mature(LVal::Int(3))));
+    let goal = Goal {
+        state,
+        op: Op::Unify(Var(l1), Var(l2)),
+    };
+    let mut stream = goal.achieve();
 
-    assert_eq!(LVal::Int(3), stream.next().unwrap())
+    assert_eq!(Str("Hello"), Var(l1).walk(&stream.next().unwrap()));
 }
 
 #[test]
-fn stream_mixed() {
-    let mut stream = Stream::new();
+fn conj_test() {
+    let mut state = State::new();
+    let l1 = state.make_var();
+    let l2 = state.make_var();
 
-    stream.add_val(LVal::Int(3));
-    stream.add_thunk(Box::new(|| StreamElem::Mature(LVal::Str("Hello"))));
+    let goal = Goal {
+        state,
+        op: Op::Conj(
+            Box::new(Op::Unify(Var(l1), Sym("true"))),
+            Box::new(Op::Unify(Var(l1), Var(l2))),
+            ),
+    };
+    let mut stream = goal.achieve();
 
-    assert_eq!(LVal::Int(3), stream.next().unwrap());
-    assert_eq!(LVal::Str("Hello"), stream.next().unwrap());
+    let answer = stream.next().unwrap();
+    
+    assert_eq!(Var(l1).walk(&answer), Var(l2).walk(&answer));
+    assert_eq!(Sym("true"), Var(l2).walk(&answer));
 }
-
-#[test]
-fn stream_mixed_nested_thunks() {
-    let mut stream = Stream::new();
-
-    stream.add_thunk(Box::new(|| {
-        StreamElem::Immature(Box::new(|| StreamElem::Mature(LVal::Str("Hello"))))
-    }));
-    stream.add_val(LVal::Int(3));
-
-    assert_eq!(LVal::Int(3), stream.next().unwrap());
-    assert_eq!(LVal::Str("Hello"), stream.next().unwrap());
-}
-*/

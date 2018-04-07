@@ -1,6 +1,18 @@
 use std::collections::HashMap;
 use unify::{Walk, Unify};
 use stream::Stream;
+use std::fmt::{self, Display};
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+pub struct LVar {
+    id: u64,
+}
+
+impl Display for LVar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "var{}", self.id)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct State<T: Walk<T>> {
@@ -8,9 +20,20 @@ pub struct State<T: Walk<T>> {
     next_id: u64,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
-pub struct LVar {
-    id: u64,
+impl<T: Walk<T>> Display for State<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.s_map {
+            Ok(ref map) => {
+                let mut output = "{ ".to_owned();
+                for (key, value) in map.iter() {
+                    output.push_str(&format!("{}: {}, ", key, value));
+                }
+                output.push('}');
+                write!(f, "{}", output)
+            },
+            Err(()) => write!(f, "nil"),
+        } 
+    }
 }
 
 impl<T: Unify<T> + Walk<T>> State<T> {
