@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-use unify::{Walk, Unify};
-use stream::Stream;
 use std::fmt::{self, Display};
+use unify::Unify;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct LVar {
@@ -15,12 +14,18 @@ impl Display for LVar {
 }
 
 #[derive(Clone, Debug)]
-pub struct State<T: Walk<T>> {
+pub struct State<T: Unify<T>> {
     s_map: Result<HashMap<LVar, T>, ()>,
     next_id: u64,
 }
 
-impl<T: Walk<T>> Display for State<T> {
+impl<T: Unify<T>> Default for State<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: Unify<T>> Display for State<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.s_map {
             Ok(ref map) => {
@@ -30,13 +35,13 @@ impl<T: Walk<T>> Display for State<T> {
                 }
                 output.push('}');
                 write!(f, "{}", output)
-            },
+            }
             Err(()) => write!(f, "nil"),
-        } 
+        }
     }
 }
 
-impl<T: Unify<T> + Walk<T>> State<T> {
+impl<T: Unify<T>> State<T> {
     pub fn new() -> Self {
         State {
             s_map: Ok(HashMap::new()),
@@ -72,20 +77,5 @@ impl<T: Unify<T> + Walk<T>> State<T> {
             Ok(ref map) => map.get(&var),
             Err(()) => None,
         }
-    }
-
-    pub fn and_then<F>(self, f: F) -> Self
-    where
-        F: FnOnce(Self) -> Self,
-    {
-        f(self)
-    }
-
-    // TODO: This should probably be on the Stream struct actually
-    pub fn unify(self, u: T, v: T) -> Stream<T> {
-        let state = u.unify(v, self);
-        let mut stream = Stream::new();
-        stream.add_val(state);
-        stream
     }
 }

@@ -20,7 +20,7 @@ fn main() {
         op: Op::Conj(
             Box::new(Op::Unify(Var(l1), Sym("true"))),
             Box::new(Op::Unify(Var(l1), Var(l2))),
-            ),
+        ),
     };
     let mut stream = Stream::new();
     stream.add_goal(goal);

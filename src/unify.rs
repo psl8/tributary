@@ -1,16 +1,9 @@
 use state::{LVar, State};
-use std::fmt::{self, Display, Debug};
+use std::fmt::{self, Debug, Display};
 
-// TODO: Remove Walk trait
-// Having different traits for Walk and Unify seems
-// redundant. Almost every interface needs both. The
-// `walk` method can be added to Unify
-pub trait Walk<T: Walk<T>> : Debug + Display + Clone {
-    fn walk(&self, state: &State<T>) -> T;
-}
-
-pub trait Unify<T: Walk<T>> {
+pub trait Unify<T: Unify<T>>: Debug + Display + Clone {
     fn unify(&self, other: T, state: State<T>) -> State<T>;
+    fn walk(&self, state: &State<T>) -> T;
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -20,6 +13,7 @@ pub enum LVal<'a> {
     Str(&'a str),
     Sym(&'a str),
     // A vec might be better
+    // TODO: Destructuring unification of lists
     Pair(Box<LVal<'a>>, Box<LVal<'a>>),
     Nil,
 }
@@ -37,8 +31,22 @@ impl<'a> Display for LVal<'a> {
     }
 }
 
+impl<'a> Unify<LVal<'a>> for LVal<'a> {
+    fn unify(&self, other: LVal<'a>, mut state: State<LVal<'a>>) -> State<LVal<'a>> {
+        let u = other.walk(&state);
+        let v = self.walk(&state);
 
-impl<'a> Walk<LVal<'a>> for LVal<'a> {
+        if let LVal::Var(var) = u {
+            state.add(var, v);
+        } else if let LVal::Var(var) = v {
+            state.add(var, u);
+        } else if u != v {
+            state.fail();
+        }
+
+        state
+    }
+
     fn walk(&self, state: &State<LVal<'a>>) -> LVal<'a> {
         if state.has_failed() {
             return LVal::Nil;
@@ -53,30 +61,9 @@ impl<'a> Walk<LVal<'a>> for LVal<'a> {
             LVal::Str(s) => LVal::Str(s),
             LVal::Sym(s) => LVal::Sym(s),
             LVal::Pair(ref car, ref cdr) => {
-                LVal::Pair(
-                    Box::new(car.walk(state)),
-                    Box::new(cdr.walk(state)),
-                    )
+                LVal::Pair(Box::new(car.walk(state)), Box::new(cdr.walk(state)))
             }
             LVal::Nil => LVal::Nil,
         }
-    }
-}
-
-impl<'a> Unify<LVal<'a>> for LVal<'a> {
-    fn unify(&self, other: LVal<'a>, mut state: State<LVal<'a>>) -> State<LVal<'a>> {
-        let u = other.walk(&state);
-        let v = self.walk(&state);
-
-        if u == v {
-            // no-op
-        } else if let LVal::Var(var) = u {
-            state.add(var, v);
-        } else if let LVal::Var(var) = v {
-            state.add(var, u);
-        } else {
-            state.fail();
-        }
-        state
     }
 }

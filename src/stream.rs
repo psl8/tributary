@@ -1,25 +1,31 @@
-use std::collections::VecDeque;
-use unify::{Walk, Unify};
-use state::State;
 use goal::Goal;
+use state::State;
+use std::collections::VecDeque;
+use unify::Unify;
 
 #[derive(Debug)]
-pub struct Stream<T: Walk<T>> {
-// In order to make this private, we need a way to
-// iterate over elements in a stream, so that Conj
-// can be implemented. Note that we can't use the
-// Iterator below because it matures the stream before
-// returning elements
+pub struct Stream<T: Unify<T>> {
+    // In order to make this private, we need a way to
+    // iterate over elements in a stream, so that Conj
+    // can be implemented. Note that we can't use the
+    // Iterator below because it matures the stream before
+    // returning elements
     pub elements: VecDeque<StreamElem<T>>,
 }
 
 #[derive(Debug)]
-pub enum StreamElem<T: Walk<T>> {
+pub enum StreamElem<T: Unify<T>> {
     Mature(State<T>),
     Immature(Goal<T>),
 }
 
-impl<T: Walk<T> + Unify<T>> Stream<T> {
+impl<T: Unify<T>> Default for Stream<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: Unify<T>> Stream<T> {
     pub fn new() -> Self {
         Stream {
             elements: VecDeque::new(),
@@ -63,15 +69,18 @@ impl<T: Walk<T> + Unify<T>> Stream<T> {
                 Some(StreamElem::Immature(goal)) => {
                     let mut new_stream = goal.achieve();
                     self.merge(new_stream);
-                },
-                Some(mature) => { self.elements.push_front(mature); break },
+                }
+                Some(mature) => {
+                    self.elements.push_front(mature);
+                    break;
+                }
                 None => break,
             }
         }
     }
 }
 
-impl<T: Walk<T> + Unify<T>> Iterator for Stream<T> {
+impl<T: Unify<T>> Iterator for Stream<T> {
     type Item = State<T>;
     fn next(&mut self) -> Option<Self::Item> {
         let val = self.elements.pop_front();
@@ -86,4 +95,3 @@ impl<T: Walk<T> + Unify<T>> Iterator for Stream<T> {
         }
     }
 }
-

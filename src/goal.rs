@@ -1,9 +1,9 @@
 use state::State;
 use stream::{Stream, StreamElem};
-use unify::{Unify, Walk};
+use unify::Unify;
 
 #[derive(Debug, Clone)]
-pub enum Op<T: Walk<T>> {
+pub enum Op<T: Unify<T>> {
     Unify(T, T),
     Disj(Vec<Goal<T>>),
     Conj(Box<Op<T>>, Box<Op<T>>),
@@ -11,14 +11,14 @@ pub enum Op<T: Walk<T>> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Goal<T: Walk<T>> {
+pub struct Goal<T: Unify<T>> {
     // Making state optional could improve eficiency of some
     // operations, such as Conj
     pub state: State<T>,
     pub op: Op<T>,
 }
 
-impl<T: Walk<T> + Unify<T>> Goal<T> {
+impl<T: Unify<T>> Goal<T> {
     pub fn achieve(mut self) -> Stream<T> {
         let mut stream = Stream::new();
         match self.op {
@@ -40,16 +40,14 @@ impl<T: Walk<T> + Unify<T>> Goal<T> {
 
                 for elem in goals.elements {
                     let goal = match elem {
-                        StreamElem::Mature(state) => {
-                            Goal {
-                                state,
-                                op: *op1.clone(),
-                            }
-                        }
-                        StreamElem::Immature(mut new_goal) => {
-                                new_goal.op = Op::Conj(op1.clone(), Box::new(new_goal.op));
-                                new_goal
+                        StreamElem::Mature(state) => Goal {
+                            state,
+                            op: *op1.clone(),
                         },
+                        StreamElem::Immature(mut new_goal) => {
+                            new_goal.op = Op::Conj(op1.clone(), Box::new(new_goal.op));
+                            new_goal
+                        }
                     };
 
                     stream.add_goal(goal);
@@ -59,7 +57,7 @@ impl<T: Walk<T> + Unify<T>> Goal<T> {
             Op::Delay(next_op) => {
                 self.op = *next_op;
                 stream.add_goal(self);
-            },
+            }
         }
         stream
     }
