@@ -5,11 +5,6 @@ use unify::Unify;
 
 #[derive(Debug)]
 pub struct Stream<T: Unify<T>> {
-    // In order to make this private, we need a way to
-    // iterate over elements in a stream, so that Conj
-    // can be implemented. Note that we can't use the
-    // Iterator below because it matures the stream before
-    // returning elements
     pub elements: VecDeque<StreamElem<T>>,
 }
 
@@ -63,7 +58,7 @@ impl<T: Unify<T>> Stream<T> {
         *self = new_stream;
     }
 
-    pub fn mature(&mut self) {
+    fn mature(&mut self) {
         loop {
             match self.elements.pop_front() {
                 Some(StreamElem::Immature(goal)) => {
@@ -86,8 +81,8 @@ impl<T: Unify<T>> Iterator for Stream<T> {
         let val = self.elements.pop_front();
         match val {
             Some(StreamElem::Mature(val)) => Some(val),
-            Some(StreamElem::Immature(thunk)) => {
-                self.elements.push_front(StreamElem::Immature(thunk));
+            Some(StreamElem::Immature(goal)) => {
+                self.elements.push_front(StreamElem::Immature(goal));
                 self.mature();
                 self.next()
             }

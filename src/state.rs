@@ -1,22 +1,21 @@
-use std::collections::HashMap;
 use std::fmt::{self, Display};
 use unify::Unify;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct LVar {
-    id: u64,
+    id: usize,
 }
 
 impl Display for LVar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "var{}", self.id)
+        write!(f, "_{}", self.id)
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct State<T: Unify<T>> {
-    s_map: Result<HashMap<LVar, T>, ()>,
-    next_id: u64,
+    pub s_map: Result<Vec<Option<T>>, ()>,
+    next_id: usize,
 }
 
 impl<T: Unify<T>> Default for State<T> {
@@ -30,8 +29,11 @@ impl<T: Unify<T>> Display for State<T> {
         match self.s_map {
             Ok(ref map) => {
                 let mut output = "{ ".to_owned();
-                for (key, value) in map.iter() {
-                    output.push_str(&format!("{}: {}, ", key, value));
+                for (i, value) in map.iter().enumerate() {
+                    match value {
+                        Some(value) => output.push_str(&format!("_{}: {}, ", i, value)),
+                        None => output.push_str(&format!("_{}: _{}, ", i, i)),
+                    }
                 }
                 output.push('}');
                 write!(f, "{}", output)
@@ -44,7 +46,7 @@ impl<T: Unify<T>> Display for State<T> {
 impl<T: Unify<T>> State<T> {
     pub fn new() -> Self {
         State {
-            s_map: Ok(HashMap::new()),
+            s_map: Ok(Vec::new()),
             next_id: 0,
         }
     }
@@ -63,19 +65,44 @@ impl<T: Unify<T>> State<T> {
     pub fn make_var(&mut self) -> LVar {
         let var = LVar { id: self.next_id };
         self.next_id += 1;
+        match self.s_map {
+            Ok(ref mut map) => map.push(None),
+            Err(()) => (),
+        }
         var
     }
 
     pub fn add(&mut self, var: LVar, val: T) {
-        if let Ok(ref mut map) = self.s_map {
-            map.insert(var, val);
+        match self.s_map {
+            Ok(ref mut map) => map[var.id] = Some(val),
+            Err(()) => (),
         }
     }
 
-    pub fn get(&self, var: LVar) -> Option<&T> {
+    pub fn get(&self, var: LVar) -> &Option<T> {
         match self.s_map {
-            Ok(ref map) => map.get(&var),
-            Err(()) => None,
+            Ok(ref map) => map.get(var.id).unwrap_or(&None),
+            Err(()) => &None,
         }
+    }
+
+    fn reify_vars(self, vars: &[LVar]) -> Vec<T> {
+        let mut reified_vars = Vec::new();
+
+        for var in vars {
+            if let Some(val) = self.get(*var) {
+                reified_vars.push(val.walk(&self))
+            }
+        }
+
+        reified_vars
+    }
+
+    pub fn reify(self) -> Vec<T> {
+        let mut vars = Vec::new();
+        for i in 0..self.next_id {
+            vars.push(LVar { id: i });
+        }
+        self.reify_vars(&vars)
     }
 }

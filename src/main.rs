@@ -1,33 +1,69 @@
+#![feature(trace_macros)]
+#[macro_use]
 extern crate tributary;
 
-use tributary::*;
+use tributary::prelude::*;
 
 fn main() {
-    let mut state = State::new();
-    let l1 = state.make_var();
-    let l2 = state.make_var();
-    let l3 = state.make_var();
-    //let l4 = state.make_var();
+    let stream = run! {
+        take: *;
+        [q r u]
+        (conde! {
+            [
+                Unify(Var(u), Sym("nil")),
+                Unify(Var(q), Sym("true")),
+                Unify(Var(r), Var(q)),
+            ],
+            [
+                Unify(Var(u), Sym("nil")),
+                Unify(Var(q), Sym("false")),
+                Unify(Var(r), Var(q)),
+            ],
+            [
+                Unify(Var(u), List(vec![Sym("foo"), Sym("bar"), Sym("baz")])),
+                Unify(Var(q), List(vec![Sym("foo"), Var(r)])),
+                Unify(Var(u), Var(q)),
+            ],
 
-    //state.add(l1, Var(l4));
-    //state.add(l2, Str("Hello"));
-    state.add(l3, Nil);
+            /*
+            [
+                Unify(Var(q), Var(r)),
+                Unify(Var(r), Var(q)),
+            ]
+            */
+        },
 
-    println!("before: {}", state);
+        conde! {
+            [
+                Unify(Var(u), Sym("nil")),
+                Unify(Var(q), Sym("true")),
+                Unify(Var(r), Var(q)),
+            ],
+            [
+                Unify(Var(u), Sym("nil")),
+                Unify(Var(q), Sym("false")),
+                Unify(Var(r), Var(q)),
+            ],
+            [
+                Unify(Var(u), List(vec![Sym("foo"), Sym("bar"), Sym("baz")])),
+                Unify(Var(q), List(vec![Sym("foo"), Var(r)])),
+                Unify(Var(u), Var(q)),
+            ],
 
-    let goal = Goal {
-        state,
-        op: Op::Conj(
-            Box::new(Op::Unify(Var(l1), Sym("true"))),
-            Box::new(Op::Unify(Var(l1), Var(l2))),
-        ),
+            /*
+            [
+                Unify(Var(q), Var(r)),
+                Unify(Var(r), Var(q)),
+            ]
+            */
+        })
     };
-    let mut stream = Stream::new();
-    stream.add_goal(goal);
 
-    for elem in stream {
-        println!("after: {}", elem);
-        println!("l1: {}, l2: {}", Var(l1).walk(&elem), Var(l2).walk(&elem));
-        //println!("{:?}", elem);
+    for answer in stream {
+        print!("[ ");
+        for value in answer {
+            print!("{} ", value);
+        }
+        println!("]");
     }
 }

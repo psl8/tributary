@@ -6,27 +6,38 @@ pub trait Unify<T: Unify<T>>: Debug + Display + Clone {
     fn walk(&self, state: &State<T>) -> T;
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
+// TODO: Owned values should use shared ownership to
+// reduce deep clones. Ideally we'd even implement Copy
 pub enum LVal<'a> {
     Var(LVar),
     Int(i64),
+    Float(f64),
     Str(&'a str),
     Sym(&'a str),
-    // A vec might be better
-    // TODO: Destructuring unification of lists
-    Pair(Box<LVal<'a>>, Box<LVal<'a>>),
-    Nil,
+    List(Vec<LVal<'a>>),
 }
 
 impl<'a> Display for LVal<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
+        match *self {
             LVal::Var(var) => write!(f, "{}", var),
             LVal::Int(i) => write!(f, "{}", i),
-            LVal::Str(s) => write!(f, "\"{}\"", s),
+            LVal::Float(i) => write!(f, "{}", i),
+            LVal::Str(ref s) => write!(f, "\"{}\"", s),
             LVal::Sym(s) => write!(f, "{}", s),
-            LVal::Pair(car, cdr) => write!(f, "({}, {})", *car, *cdr),
-            LVal::Nil => write!(f, "nil"),
+            LVal::List(ref list) => {
+                let mut output = "[".to_owned();
+                for elem in list {
+                    output.push_str(&format!("{}, ", elem));
+                }
+                if !list.is_empty() {
+                    output.pop();
+                    output.pop();
+                }
+                output.push(']');
+                write!(f, "{}", output)
+            }
         }
     }
 }
@@ -36,10 +47,21 @@ impl<'a> Unify<LVal<'a>> for LVal<'a> {
         let u = other.walk(&state);
         let v = self.walk(&state);
 
-        if let LVal::Var(var) = u {
+        // TODO: should variables be able to match multiple list elements?
+        if let LVal::List(list1) = u {
+            match v {
+                LVal::List(list2) => for (elem1, elem2) in list1.iter().zip(list2) {
+                    state = elem1.unify(elem2, state);
+                },
+                LVal::Var(var) => state.add(var, LVal::List(list1)),
+                _ => state.fail(),
+            }
+        } else if let LVal::Var(var) = u {
             state.add(var, v);
         } else if let LVal::Var(var) = v {
             state.add(var, u);
+        // What should NaN do here?
+        // Does NaN unify with NaN?
         } else if u != v {
             state.fail();
         }
@@ -48,22 +70,23 @@ impl<'a> Unify<LVal<'a>> for LVal<'a> {
     }
 
     fn walk(&self, state: &State<LVal<'a>>) -> LVal<'a> {
+        // This error handling is less than ideal
         if state.has_failed() {
-            return LVal::Nil;
+            return LVal::Sym("nil");
         }
 
         match *self {
-            LVal::Var(lvar) => match state.get(lvar) {
-                Some(var) => var.walk(state),
-                None => LVal::Var(lvar),
+            LVal::Var(var) => match state.get(var) {
+                // Check if self == val?
+                // Would this break *all* cycles?
+                Some(val) => val.walk(state),
+                None => LVal::Var(var),
             },
             LVal::Int(i) => LVal::Int(i),
-            LVal::Str(s) => LVal::Str(s),
+            LVal::Float(i) => LVal::Float(i),
+            LVal::Str(ref s) => LVal::Str(s.clone()),
             LVal::Sym(s) => LVal::Sym(s),
-            LVal::Pair(ref car, ref cdr) => {
-                LVal::Pair(Box::new(car.walk(state)), Box::new(cdr.walk(state)))
-            }
-            LVal::Nil => LVal::Nil,
+            LVal::List(ref list) => LVal::List(list.iter().map(|elem| elem.walk(&state)).collect()),
         }
     }
 }
