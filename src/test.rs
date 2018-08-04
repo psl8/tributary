@@ -6,10 +6,10 @@ fn simple_unify() {
     let l1 = state.make_var();
     let l2 = state.make_var();
     state.add(l1, Var(l2));
-    state.add(l2, Str("Hello"));
+    state.add(l2, Sym("Hello"));
 
     let state = Var(l1).unify(Var(l2), state);
-    assert_eq!(Str("Hello"), Var(l1).walk(&state));
+    assert_eq!(Sym("Hello"), Var(l1).walk(&state));
 }
 
 #[test]
@@ -18,7 +18,7 @@ fn simple_goal() {
     let l1 = state.make_var();
     let l2 = state.make_var();
     state.add(l1, Var(l2));
-    state.add(l2, Str("Hello"));
+    state.add(l2, Sym("Hello"));
 
     let goal = Goal {
         state,
@@ -26,7 +26,7 @@ fn simple_goal() {
     };
     let mut stream = goal.achieve();
 
-    assert_eq!(Str("Hello"), Var(l1).walk(&stream.next().unwrap()));
+    assert_eq!(Sym("Hello"), Var(l1).walk(&stream.next().unwrap()));
 }
 
 #[test]

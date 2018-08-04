@@ -7,13 +7,11 @@ pub trait Unify<T: Unify<T>>: Debug + Display + Clone {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-// TODO: Owned values should use shared ownership to
-// reduce deep clones. Ideally we'd even implement Copy
 pub enum LVal<'a> {
     Var(LVar),
     Int(i64),
     Float(f64),
-    Str(&'a str),
+    Str(String),
     Sym(&'a str),
     List(Vec<LVal<'a>>),
 }
